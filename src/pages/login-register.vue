@@ -120,7 +120,7 @@ export default {
       this.resetLoginForm();
     },
     showRegisterForm() {
-    this.$emit('update:loginForm', false); // Emit the event to update the loginForm value in the parent
+    this.$emit('update:loginForm', false); 
     this.registerForm = true;
   },
     closeRegisterForm()
