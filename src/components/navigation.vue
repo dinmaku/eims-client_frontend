@@ -181,7 +181,7 @@ export default {
       showDropDown: false,
       isDropdownVisible: false,
       userProfile: null,
-      apiBaseUrl: 'http://127.0.0.1:5001'
+      apiBaseUrl: import.meta.env.VITE_API_URL
     };
   },
   computed: {
