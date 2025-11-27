@@ -142,7 +142,7 @@ export default {
       error: null,
       showFilter: false,
       selectedService: 'all',
-      apiBaseUrl: 'http://localhost:5001',
+      apiBaseUrl: import.meta.env.VITE_API_URL,
     };
   },
   computed: {

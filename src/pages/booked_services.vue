@@ -471,82 +471,29 @@
 </template>
 
 
-<script lang="ts">
+<script>
 import axios from 'axios';
 import { defineComponent } from 'vue';
 
-interface Venue {
-    venue_id: number;
-    venue_name: string;
-    location: string;
-    venue_price: number;
-    description: string;
-    venue_capacity: number;
-    status: string;
-    remarks: string;
-}
-
-interface BookedEvent {
-    events_id: number;
-    event_name: string;
-    event_type: string;
-    event_theme: string;
-    event_color: string;
-    schedule: string;
-    start_time: string;
-    end_time: string;
-    event_status: string;
-    total_price: number;
-    venue?: Venue;
-    outfits: any[];
-    suppliers: any[];
-    additional_services: any[];
-    gown_package_name?: string;
-    gown_package_price?: number;
-    package_name?: string;
-    capacity?: number;
-    description?: string;
-    additional_capacity_charges?: number;
-    charge_unit?: number;
-    package_status?: string;
-}
-
-interface Feedback {
-    feedback_id: number;
-    rating: number;
-    feedback_text: string;
-    created_at: string;
-    user_firstname: string;
-    user_lastname: string;
-}
-
-interface Outfit {
-    outfit_id: number;
-    outfit_name: string;
-    outfit_type: string;
-    outfit_color: string;
-    outfit_desc: string;
-    outfit_img: string;
-    rent_price: number;
-    status: string;
-    remarks?: string;
-}
-
 export default defineComponent({
     name: 'BookedServices',
+    
     data() {
         return {
+            // Navigation state
             events_navigation: true,
-            selectedWishlist: null as BookedEvent | null,
-            selectedOutfit: null as Outfit | null,
-            activeNavButton: 'wishlist' as 'wishlist' | 'upcoming' | 'finished' | 'cancelled' | 'all',
+            activeNavButton: 'wishlist',
+            
+            // Selection state
+            selectedWishlist: null,
+            selectedOutfit: null,
             
             // Pagination
             currentPage: 1,
             itemsPerPage: 3,
             
             // Display flags
-            displayWishlist: true,
+            displayWishlist: false,
             displayUpcoming: false,
             displayFinished: false,
             displayCancelled: false,
@@ -555,68 +502,70 @@ export default defineComponent({
             displayBookedOutfits: false,
 
             // Data arrays
-            bookedWishlist: [] as BookedEvent[],
-            bookedOutfits: [] as Outfit[],
+            bookedWishlist: [],
+            bookedOutfits: [],
 
             // Modal toggles
             showSuppliers: false,
             showAdditionalServices: false,
             showRatingModal: false,
             showViewFeedbackModal: false,
-            selectedEventForRating: null as BookedEvent | null,
+            selectedEventForRating: null,
             rating: 0,
             feedbackText: '',
-            existingFeedback: null as Feedback | null,
+            existingFeedback: null,
             showAlert: false,
             alertType: 'success',
             alertMessage: '',
         };
     },
+
     computed: {
+        // Filtered wishlist based on active navigation
         filteredWishlist() {
             if (!this.bookedWishlist) return [];
             
-            let filtered;
-            switch (this.activeNavButton) {
-                case 'wishlist':
-                    filtered = this.bookedWishlist.filter(item => item.event_status === 'Wishlist');
-                    break;
-                case 'upcoming':
-                    filtered = this.bookedWishlist.filter(item => item.event_status === 'Upcoming');
-                    break;
-                case 'finished':
-                    filtered = this.bookedWishlist.filter(item => item.event_status === 'Finished');
-                    break;
-                case 'cancelled':
-                    filtered = this.bookedWishlist.filter(item => item.event_status === 'Cancelled');
-                    break;
-                case 'all':
-                default:
-                    filtered = this.bookedWishlist;
-            }
+            const statusMap = {
+                'wishlist': 'Wishlist',
+                'upcoming': 'Upcoming',
+                'finished': 'Finished',
+                'cancelled': 'Cancelled'
+            };
             
-            return filtered;
+            const status = statusMap[this.activeNavButton];
+            return this.activeNavButton === 'all' 
+                ? this.bookedWishlist 
+                : this.bookedWishlist.filter(item => item.event_status === status);
         },
         
-        // Add paginated wishlist
+        // Paginated wishlist
         paginatedWishlist() {
             const startIndex = (this.currentPage - 1) * this.itemsPerPage;
             const endIndex = startIndex + this.itemsPerPage;
             return this.filteredWishlist.slice(startIndex, endIndex);
         },
         
-        // Total pages
+        // Total pages for pagination
         totalPages() {
             return Math.ceil(this.filteredWishlist.length / this.itemsPerPage);
         }
     },
+
     created() {
         this.fetchBookedWishlist();
         this.fetchBookedOutfits();
     },
+
+    mounted() {
+        // Set initial display state
+        this.setActiveNav('wishlist');
+    },
+
     methods: {
-        setActiveNav(type: 'wishlist' | 'upcoming' | 'finished' | 'cancelled' | 'all') {
+        // Navigation methods
+        setActiveNav(type) {
             this.activeNavButton = type;
+            
             // Reset all display flags
             this.displayWishlist = false;
             this.displayUpcoming = false;
@@ -625,25 +574,23 @@ export default defineComponent({
             this.displayAll = false;
 
             // Set the appropriate display flag
-            switch (type) {
-                case 'wishlist':
-                    this.displayWishlist = true;
-                    break;
-                case 'upcoming':
-                    this.displayUpcoming = true;
-                    break;
-                case 'finished':
-                    this.displayFinished = true;
-                    break;
-                case 'cancelled':
-                    this.displayCancelled = true;
-                    break;
-                case 'all':
-                    this.displayAll = true;
-                    break;
+            const displayMap = {
+                'wishlist': true,
+                'upcoming': true,
+                'finished': true,
+                'cancelled': true,
+                'all': true
+            };
+            
+            if (displayMap[type]) {
+                this[`display${type.charAt(0).toUpperCase() + type.slice(1)}`] = true;
             }
+            
+            // Reset to page 1 when navigation changes
+            this.currentPage = 1;
         },
         
+        // Section display methods
         toggleWishlistDisplay() {
             this.displayBookedWishlist = true;
         },
@@ -660,24 +607,21 @@ export default defineComponent({
             this.displayBookedOutfits = true;
         },
 
+        // Utility methods
         formatPrice(price) {
             if (price === null || price === undefined || isNaN(price)) {
-                return 'N/A'; // Return a fallback if price is invalid
+                return 'N/A';
             }
-            // Round the price to 2 decimal places and format with commas
             return parseFloat(price).toFixed(2).replace(/\d(?=(\d{3})+\.)/g, '$&,');
         },
 
+        // API methods
         async fetchBookedWishlist() {
             try {
-                const token = localStorage.getItem('access_token');
-                if (!token) {
-                    console.error('No access token found');
-                    this.$router.push('/login');
-                    return;
-                }
+                const token = this.getAuthToken();
+                if (!token) return;
 
-                const response = await axios.get('http://127.0.0.1:5001/wishlist', {
+                const response = await axios.get(`${this.getApiUrl()}/wishlist`, {
                     headers: {
                         'Content-Type': 'application/json',
                         'Authorization': `Bearer ${token}`
@@ -685,33 +629,37 @@ export default defineComponent({
                     withCredentials: true
                 });
                 
-                console.log('Received wishlist data:', response.data);
                 this.bookedWishlist = response.data;
-                // Reset to page 1 when data changes
-                this.currentPage = 1;
             } catch (error) {
-                console.error('Error fetching booked wishlist:', error);
-                if (error.response?.status === 401) {
-                    // Token expired or invalid
-                    localStorage.removeItem('access_token');
-                    this.$router.push('/login');
-                } else if (error.response?.status === 422) {
-                    // Invalid data format
-                    console.error('Invalid data format:', error.response.data);
-                }
+                this.handleApiError(error, 'fetching booked wishlist');
+            }
+        },
+
+        async fetchBookedOutfits() {
+            try {
+                const token = this.getAuthToken();
+                if (!token) return;
+
+                const response = await axios.get(`${this.getApiUrl()}/booked-outfits`, {
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Authorization': `Bearer ${token}`
+                    },
+                    withCredentials: true
+                });
+                
+                this.bookedOutfits = response.data;
+            } catch (error) {
+                this.handleApiError(error, 'fetching booked outfits');
             }
         },
 
         async deleteWishlistItem(events_id) {
             try {
-                const token = localStorage.getItem('access_token');
-                if (!token) {
-                    console.error('No access token found');
-                    this.$router.push('/login');
-                    return;
-                }
+                const token = this.getAuthToken();
+                if (!token) return;
 
-                const response = await axios.delete(`http://127.0.0.1:5001/booked_wishlist/${events_id}`, {
+                const response = await axios.delete(`${this.getApiUrl()}/booked_wishlist/${events_id}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
@@ -719,117 +667,65 @@ export default defineComponent({
 
                 if (response.status === 200) {
                     this.bookedWishlist = this.bookedWishlist.filter(item => item.events_id !== events_id);
-                    alert('Event item deleted successfully!');
-                    this.selectedWishlist = null;  // Changed from false to null to match the data type
+                    this.showAlertMessage('success', 'Event item deleted successfully!');
+                    this.selectedWishlist = null;
                     this.closeWishlistModal();
                 }
             } catch (error) {
-                console.error('Error deleting event item:', error);
-                if (error.response?.status === 401) {
-                    // Token expired or invalid
-                    localStorage.removeItem('access_token');
-                    this.$router.push('/login');
-                } else {
-                    alert('Failed to delete event item. Please try again.');
-                }
+                this.handleApiError(error, 'deleting event item');
             }
         },
 
+        // Modal methods
         displayWishlistDetails(item) {
-            console.log('Selected wishlist item:', item);
-            console.log('Gown package name:', item.gown_package_name);
-            console.log('Gown package price:', item.gown_package_price);
-            console.log('Outfits array:', item.outfits);
-            
-            // Ensure outfits are properly formatted
-            if (item.outfits && Array.isArray(item.outfits)) {
-                console.log('Number of outfits:', item.outfits.length);
-                item.outfits.forEach((outfit, index) => {
-                    console.log(`Outfit ${index + 1}:`, outfit);
-                });
-                this.selectedWishlist = item;
-            } else {
-                console.warn('No valid outfits array found, creating empty array');
-                this.selectedWishlist = {
-                    ...item,
-                    outfits: []
-                };
-            }
+            this.selectedWishlist = {
+                ...item,
+                outfits: item.outfits || []
+            };
         },
+        
         closeWishlistModal() {
             this.selectedWishlist = null;
             this.showSuppliers = false;
             this.showAdditionalServices = false;
         },
 
-        async fetchBookedOutfits() {
-            try {
-                const token = localStorage.getItem('access_token');
-                if (!token) {
-                    console.error('No access token found');
-                    this.$router.push('/login');
-                    return;
-                }
-
-                const response = await axios.get('http://127.0.0.1:5001/booked-outfits', {
-                    headers: {
-                        'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${token}`
-                    },
-                    withCredentials: true
-                });
-                this.bookedOutfits = response.data;
-            } catch (error) {
-                console.error('Error fetching booked outfits:', error);
-                if (error.response?.status === 401) {
-                    // Token expired or invalid
-                    localStorage.removeItem('access_token');
-                    this.$router.push('/login');
-                } else if (error.response?.status === 422) {
-                    // Invalid data format
-                    console.error('Invalid data format:', error.response.data);
-                }
-            }
-        },
-        viewOutfitImage(outfit) {
-            if (outfit && outfit.outfit_img) {
-                this.selectedOutfit = outfit;
-            } else {
-                alert('No image available for this outfit.');
-            }
-        },
+        // Pagination methods
         prevPage() {
             if (this.currentPage > 1) {
                 this.currentPage--;
             }
         },
+        
         nextPage() {
             if (this.currentPage < this.totalPages) {
                 this.currentPage++;
             }
         },
+        
         setPage(page) {
             if (page >= 1 && page <= this.totalPages) {
                 this.currentPage = page;
             }
         },
+
+        // Rating methods
         async openRatingModal(event) {
             try {
-                // First check if user has already rated this event
-                const token = localStorage.getItem('access_token');
-                const response = await axios.get(`http://127.0.0.1:5001/event-feedback/${event.events_id}`, {
+                const token = this.getAuthToken();
+                if (!token) return;
+
+                const response = await axios.get(`${this.getApiUrl()}/event-feedback/${event.events_id}`, {
                     headers: {
                         'Authorization': `Bearer ${token}`
                     }
                 });
 
                 if (response.data.data && response.data.data.length > 0) {
-                    // User has already rated, show the feedback
-                    this.existingFeedback = response.data.data[0]; // Get the first feedback (should be user's own)
+                    this.existingFeedback = response.data.data[0];
                     this.selectedEventForRating = event;
                     this.showViewFeedbackModal = true;
                 } else {
-                    // User hasn't rated yet, show rating modal
                     this.selectedEventForRating = event;
                     this.showRatingModal = true;
                     this.rating = 0;
@@ -837,7 +733,7 @@ export default defineComponent({
                 }
             } catch (error) {
                 console.error('Error checking feedback:', error);
-                alert('Error checking feedback status');
+                this.showAlertMessage('error', 'Error checking feedback status');
             }
         },
 
@@ -856,14 +752,10 @@ export default defineComponent({
 
         async submitRating() {
             try {
-                const token = localStorage.getItem('access_token');
-                if (!token) {
-                    console.error('No access token found');
-                    this.$router.push('/login');
-                    return;
-                }
+                const token = this.getAuthToken();
+                if (!token) return;
 
-                const response = await axios.post('http://127.0.0.1:5001/event-feedback', {
+                const response = await axios.post(`${this.getApiUrl()}/event-feedback`, {
                     events_id: this.selectedEventForRating.events_id,
                     rating: this.rating,
                     feedback_text: this.feedbackText
@@ -879,32 +771,27 @@ export default defineComponent({
                     this.closeRatingModal();
                 }
             } catch (error) {
-                console.error('Error submitting rating:', error);
-                if (error.response?.status === 401) {
-                    localStorage.removeItem('access_token');
-                    this.$router.push('/login');
-                } else if (error.response?.status === 409) {
-                    this.showAlertMessage('error', 'You have already submitted feedback for this event.');
-                } else {
-                    this.showAlertMessage('error', 'Failed to submit rating. Please try again.');
-                }
+                this.handleApiError(error, 'submitting rating');
             }
         },
 
+        // Image methods
         getOutfitImageUrl(imageFileName) {
             if (!imageFileName) {
-                return `http://127.0.0.1:5001/api/outfits/image/default_outfit.png`;
+                return `${this.getApiUrl()}/api/outfits/image/default_outfit.png`;
             }
-            // Clean up the image filename to only use the actual filename
+            
             const filename = imageFileName.split(/[\/\\]/).pop();
-            return `http://127.0.0.1:5001/api/outfits/image/${filename}`;
+            return `${this.getApiUrl()}/api/outfits/image/${filename}`;
         },
 
-        handleImageError(e) {
-            e.target.style.display = 'none';
+        handleImageError(event) {
+            const target = event.target;
+            target.style.display = 'none';
         },
 
-        showAlertMessage(type: 'success' | 'error', message: string) {
+        // Alert methods
+        showAlertMessage(type, message) {
             this.alertType = type;
             this.alertMessage = message;
             this.showAlert = true;
@@ -914,13 +801,39 @@ export default defineComponent({
             this.showAlert = false;
             this.alertMessage = '';
         },
-    },
 
-    mounted() {
-        this.fetchBookedWishlist();
-        this.fetchBookedOutfits();  // Automatically call the function when the component is mounted
+        // Helper methods
+        getAuthToken() {
+            const token = localStorage.getItem('access_token');
+            if (!token) {
+                console.error('No access token found');
+                this.$router.push('/login');
+                return null;
+            }
+            return token;
+        },
+
+        getApiUrl() {
+            return import.meta.env.VITE_API_URL || 'http://127.0.0.1:5001';
+        },
+
+        handleApiError(error, operation) {
+            console.error(`Error ${operation}:`, error);
+            
+            if (error.response?.status === 401) {
+                localStorage.removeItem('access_token');
+                this.$router.push('/login');
+            } else if (error.response?.status === 422) {
+                console.error('Invalid data format:', error.response.data);
+                this.showAlertMessage('error', 'Invalid data format');
+            } else if (error.response?.status === 409) {
+                this.showAlertMessage('error', 'You have already submitted feedback for this event.');
+            } else {
+                this.showAlertMessage('error', `Failed to ${operation}. Please try again.`);
+            }
+        },
     },
-})
+});
 </script>
 
 <style scoped>
